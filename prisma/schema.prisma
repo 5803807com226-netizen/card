@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model MasterCard {
@@ -20,7 +20,7 @@ model MasterCard {
   rarity          String?
   category        String?
   language_base   String   @default("en")
-  metadata_json   Json?
+  metadata_json   String?
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
@@ -71,7 +71,7 @@ model PriceLog {
   scrape_confidence Float?
   scrape_status    String?
   source_note      String?
-  raw_payload_json Json?
+  raw_payload_json String?
   created_at       DateTime    @default(now())
 }
 
