@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model MasterCard {
+  id              String   @id @default(cuid())
+  game_type       String
+  source_provider String
+  source_card_id  String
+  card_name       String
+  set_name        String?
+  set_code        String?
+  card_number     String?
+  image_url       String?
+  rarity          String?
+  category        String?
+  language_base   String   @default("en")
+  metadata_json   Json?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  tracked_cards TrackedCard[]
+
+  @@unique([game_type, source_provider, source_card_id])
+}
+
+model TrackedCard {
+  id                    String     @id @default(cuid())
+  master_card_id        String
+  master_card           MasterCard @relation(fields: [master_card_id], references: [id])
+  psa_grade             Int?
+  ebay_url              String?
+  japan_url             String?
+  thai_price            Float?
+  thai_buy_price        Float?
+  note                  String?
+  label                 String?
+  priority_tier         String     @default("C")
+  current_status        String     @default("tracking")
+  latest_ebay_price     Float?
+  latest_japan_price    Float?
+  latest_thai_price     Float?
+  latest_profit         Float?
+  latest_profit_percent Float?
+  latest_checked_at     DateTime?
+  next_check_at         DateTime?
+  created_at            DateTime   @default(now())
+  updated_at            DateTime   @updatedAt
+
+  price_logs        PriceLog[]
+  portfolio_records PortfolioRecord[]
+  thai_market_posts ThaiMarketPost[]
+  scrape_jobs       ScrapeJob[]
+}
+
+model PriceLog {
+  id               String      @id @default(cuid())
+  tracked_card_id  String
+  tracked_card     TrackedCard @relation(fields: [tracked_card_id], references: [id], onDelete: Cascade)
+  checked_at       DateTime    @default(now())
+  ebay_price       Float?
+  japan_price      Float?
+  thai_price       Float?
+  profit           Float?
+  profit_percent   Float?
+  scrape_confidence Float?
+  scrape_status    String?
+  source_note      String?
+  raw_payload_json Json?
+  created_at       DateTime    @default(now())
+}
+
+model PortfolioRecord {
+  id              String      @id @default(cuid())
+  tracked_card_id String
+  tracked_card    TrackedCard @relation(fields: [tracked_card_id], references: [id], onDelete: Cascade)
+  buy_price       Float?
+  buy_date        DateTime?
+  sell_price      Float?
+  sell_date       DateTime?
+  sell_platform   String?
+  realized_profit Float?
+  note            String?
+  created_at      DateTime    @default(now())
+}
+
+model ThaiMarketPost {
+  id                String      @id @default(cuid())
+  tracked_card_id   String
+  tracked_card      TrackedCard @relation(fields: [tracked_card_id], references: [id], onDelete: Cascade)
+  posted_price      Float?
+  actual_sold_price Float?
+  post_date         DateTime?
+  sold_date         DateTime?
+  post_url          String?
+  source_name       String?
+  status            String      @default("available")
+  note              String?
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @updatedAt
+}
+
+model ScrapeJob {
+  id              String      @id @default(cuid())
+  tracked_card_id String
+  tracked_card    TrackedCard @relation(fields: [tracked_card_id], references: [id], onDelete: Cascade)
+  status          String      @default("pending")
+  priority        Int         @default(3)
+  scheduled_at    DateTime?
+  started_at      DateTime?
+  finished_at     DateTime?
+  retry_count     Int         @default(0)
+  error_message   String?
+  created_at      DateTime    @default(now())
+}
