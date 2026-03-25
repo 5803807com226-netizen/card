@@ -12,26 +12,37 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'cardId is required' }, { status: 400 });
   }
 
-  // Japanese endpoint returns JPY prices directly
-  // conditionId=22 = PSA 10, In-Stock Only, sorted by lowest price
-  const url = `https://snkrdunk.com/ja/v1/trading-cards/${cardId}/used-listings?perPage=20&page=1&sortType=price_asc&isOnlyOnSale=true&conditionId=22`;
+  const baseUrl = `https://snkrdunk.com/en/v1/trading-cards/${cardId}/used-listings`;
+  const baseParams = `perPage=20&page=1&sortType=price_asc&isOnlyOnSale=true`;
+
+  // Try PSA 10 first (conditionId=22), fallback to all conditions
+  const urlsToTry = [
+    `${baseUrl}?${baseParams}&conditionId=22`,
+    `${baseUrl}?${baseParams}`,
+  ];
+
+  const fetchHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9,ja;q=0.8',
+    'Referer': 'https://snkrdunk.com/',
+    'Origin': 'https://snkrdunk.com',
+  };
 
   try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9,ja;q=0.8',
-        'Referer': 'https://snkrdunk.com/',
-        'Origin': 'https://snkrdunk.com',
-      },
-      next: { revalidate: 300 }, // cache 5 minutes
-    });
+    let res: Response | null = null;
+    let lastStatus = 0;
 
-    if (!res.ok) {
+    for (const url of urlsToTry) {
+      res = await fetch(url, { headers: fetchHeaders, next: { revalidate: 300 } });
+      lastStatus = res.status;
+      if (res.ok) break;
+    }
+
+    if (!res || !res.ok) {
       return NextResponse.json(
-        { error: `SNKRDUNK returned ${res.status}` },
-        { status: res.status }
+        { error: `SNKRDUNK returned ${lastStatus}` },
+        { status: lastStatus }
       );
     }
 
