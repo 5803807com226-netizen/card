@@ -41,11 +41,24 @@ export async function GET(req: NextRequest) {
       data?.data?.listings ||
       data?.items ||
       data?.data?.items ||
-      data?.data ||
+      data?.tradingCardUsedListings ||
+      data?.data?.tradingCardUsedListings ||
+      data?.usedListings ||
+      data?.data?.usedListings ||
+      data?.results ||
+      data?.data?.results ||
+      (Array.isArray(data?.data) ? data.data : null) ||
+      (Array.isArray(data) ? data : null) ||
       [];
 
     if (!Array.isArray(listings) || listings.length === 0) {
-      return NextResponse.json({ error: 'No listings found', raw: data }, { status: 404 });
+      // Return top-level keys to help diagnose structure
+      const topKeys = typeof data === 'object' && data !== null ? Object.keys(data) : [];
+      const dataKeys = data?.data && typeof data.data === 'object' ? Object.keys(data.data) : [];
+      return NextResponse.json(
+        { error: 'No listings found', topKeys, dataKeys },
+        { status: 404 }
+      );
     }
 
     // First item is lowest price (sorted price_asc)
