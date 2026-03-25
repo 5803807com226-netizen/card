@@ -35,8 +35,9 @@ export async function GET(req: NextRequest) {
     const data = await res.json();
 
     // Parse lowest price from response
-    // Try multiple possible response structures
+    // SNKRDUNK returns { usedTradingCards: [...] }
     const listings =
+      data?.usedTradingCards ||
       data?.listings ||
       data?.data?.listings ||
       data?.items ||
@@ -44,19 +45,15 @@ export async function GET(req: NextRequest) {
       data?.tradingCardUsedListings ||
       data?.data?.tradingCardUsedListings ||
       data?.usedListings ||
-      data?.data?.usedListings ||
       data?.results ||
-      data?.data?.results ||
       (Array.isArray(data?.data) ? data.data : null) ||
       (Array.isArray(data) ? data : null) ||
       [];
 
     if (!Array.isArray(listings) || listings.length === 0) {
-      // Return top-level keys to help diagnose structure
       const topKeys = typeof data === 'object' && data !== null ? Object.keys(data) : [];
-      const dataKeys = data?.data && typeof data.data === 'object' ? Object.keys(data.data) : [];
       return NextResponse.json(
-        { error: 'No listings found', topKeys, dataKeys },
+        { error: 'No listings found', topKeys },
         { status: 404 }
       );
     }
@@ -64,22 +61,25 @@ export async function GET(req: NextRequest) {
     // First item is lowest price (sorted price_asc)
     const first = listings[0];
 
-    // Try common price field names
-    const priceJPY =
-      first?.price ??
-      first?.listing_price ??
-      first?.sell_price ??
-      first?.amount ??
-      first?.current_price ??
-      null;
+    // Price may be a number (JPY) or string like "US $2500" (USD)
+    const rawPrice = first?.price ?? first?.listing_price ?? first?.sell_price ?? first?.amount ?? first?.current_price ?? null;
 
-    if (priceJPY === null) {
+    if (rawPrice === null) {
       return NextResponse.json({ error: 'Could not parse price', listing: first }, { status: 422 });
+    }
+
+    let lowestPriceJPY: number;
+    if (typeof rawPrice === 'string' && rawPrice.startsWith('US $')) {
+      // Convert USD → JPY
+      const usd = parseFloat(rawPrice.replace('US $', '').replace(',', ''));
+      lowestPriceJPY = Math.round(usd * USD_JPY_RATE);
+    } else {
+      lowestPriceJPY = Number(rawPrice);
     }
 
     return NextResponse.json({
       cardId,
-      lowestPriceJPY: Number(priceJPY),
+      lowestPriceJPY,
       listingCount: listings.length,
       listing: first,
     });
