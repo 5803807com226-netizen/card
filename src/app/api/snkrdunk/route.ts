@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     let lastStatus = 0;
 
     for (const url of urlsToTry) {
-      res = await fetch(url, { headers: fetchHeaders, next: { revalidate: 300 } });
+      res = await fetch(url, { headers: fetchHeaders, cache: 'no-store' });
       lastStatus = res.status;
       if (res.ok) break;
     }
