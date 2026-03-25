@@ -3,6 +3,8 @@ import { searchPokemonCards } from '@/lib/api/pokemon-tcg';
 import { searchOnePieceCards } from '@/lib/api/one-piece';
 import { searchDragonBallCards } from '@/lib/api/dragon-ball';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
