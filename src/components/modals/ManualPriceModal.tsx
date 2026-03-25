@@ -62,23 +62,33 @@ export default function ManualPriceModal({ isOpen, onClose, onSuccess, card }: M
     setSnkrdunkError('');
     setSnkrdunkResult(null);
 
+    const id = snkrdunkId.trim();
+    const base = `https://snkrdunk.com/en/v1/trading-cards/${id}/used-listings`;
+    const params = `perPage=20&page=1&sortType=price_asc&isOnlyOnSale=true`;
+
     try {
-      const res = await fetch(`/api/snkrdunk?cardId=${snkrdunkId.trim()}`);
-      const data = await res.json();
+      // Call SNKRDUNK directly from browser to avoid server-side blocking
+      let res = await fetch(`${base}?${params}&conditionId=22`);
+      if (!res.ok) res = await fetch(`${base}?${params}`); // fallback: all conditions
 
       if (!res.ok) {
-        const detail = data.topKeys?.length
-          ? ` (keys: ${data.topKeys.join(', ')}${data.dataKeys?.length ? ' / data: ' + data.dataKeys.join(', ') : ''})`
-          : '';
-        setSnkrdunkError((data.error || 'ดึงราคาไม่สำเร็จ') + detail);
+        setSnkrdunkError(`SNKRDUNK returned ${res.status}`);
         return;
       }
 
-      const priceJPY = data.lowestPriceJPY;
+      const data = await res.json();
+      const listings: Array<{ price?: string }> = data?.usedTradingCards ?? [];
+
+      if (!listings.length) {
+        setSnkrdunkError('ไม่มีสินค้าในสต็อก');
+        return;
+      }
+
+      const rawPrice = listings[0]?.price ?? '';
+      const priceJPY = parseInt(rawPrice.replace(/[¥￥,]/g, ''), 10);
       const priceUSD = Math.round((priceJPY / USD_JPY_RATE) * 100) / 100;
 
-      setSnkrdunkResult({ priceJPY, priceUSD, count: data.listingCount });
-      // Auto-fill japan price field
+      setSnkrdunkResult({ priceJPY, priceUSD, count: listings.length });
       setForm((prev) => ({ ...prev, japan_price: priceUSD.toString() }));
     } catch {
       setSnkrdunkError('เชื่อมต่อ SNKRDUNK ไม่ได้');
