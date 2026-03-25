@@ -12,9 +12,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'cardId is required' }, { status: 400 });
   }
 
-  // Japanese endpoint returns JPY prices directly
   // conditionId=22 = PSA 10, In-Stock Only, sorted by lowest price
-  const url = `https://snkrdunk.com/ja/v1/trading-cards/${cardId}/used-listings?perPage=20&page=1&sortType=price_asc&isOnlyOnSale=true&conditionId=22`;
+  const url = `https://snkrdunk.com/en/v1/trading-cards/${cardId}/used-listings?perPage=20&page=1&sortType=price_asc&isOnlyOnSale=true&conditionId=22`;
 
   try {
     const res = await fetch(url, {
