@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const USD_JPY_RATE = 150;
+
 // GET /api/snkrdunk?cardId=91118
 // Fetches lowest in-stock price from SNKRDUNK for a trading card
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const cardId = searchParams.get('cardId');
-  const conditionId = searchParams.get('conditionId') || '22'; // 22 = graded/PSA
 
   if (!cardId) {
     return NextResponse.json({ error: 'cardId is required' }, { status: 400 });
   }
 
-  const url = `https://snkrdunk.com/en/v1/trading-cards/${cardId}/used-listings?perPage=20&page=1&sortType=price_asc&isOnlyOnSale=true&conditionId=${conditionId}`;
+  // No conditionId filter — get all conditions to find the lowest price
+  const url = `https://snkrdunk.com/en/v1/trading-cards/${cardId}/used-listings?perPage=20&page=1&sortType=price_asc&isOnlyOnSale=true`;
 
   try {
     const res = await fetch(url, {
