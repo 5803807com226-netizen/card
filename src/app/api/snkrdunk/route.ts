@@ -12,8 +12,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'cardId is required' }, { status: 400 });
   }
 
+  // Japanese endpoint returns JPY prices directly
   // conditionId=22 = PSA 10, In-Stock Only, sorted by lowest price
-  const url = `https://snkrdunk.com/en/v1/trading-cards/${cardId}/used-listings?perPage=20&page=1&sortType=price_asc&isOnlyOnSale=true&conditionId=22`;
+  const url = `https://snkrdunk.com/ja/v1/trading-cards/${cardId}/used-listings?perPage=20&page=1&sortType=price_asc&isOnlyOnSale=true&conditionId=22`;
 
   try {
     const res = await fetch(url, {
@@ -72,9 +73,12 @@ export async function GET(req: NextRequest) {
 
     let lowestPriceJPY: number;
     if (typeof rawPrice === 'string' && rawPrice.startsWith('US $')) {
-      // Convert USD → JPY
+      // International listing — convert USD → JPY
       const usd = parseFloat(rawPrice.replace('US $', '').replace(',', ''));
       lowestPriceJPY = Math.round(usd * USD_JPY_RATE);
+    } else if (typeof rawPrice === 'string') {
+      // Strip any currency symbol (¥, ￥, commas) and parse as number
+      lowestPriceJPY = parseInt(rawPrice.replace(/[¥￥,]/g, ''), 10);
     } else {
       lowestPriceJPY = Number(rawPrice);
     }
