@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useState } from 'react';
 import {
   Eye,
   Edit2,
@@ -13,6 +14,7 @@ import {
   Minus,
   ChevronUp,
   ChevronDown,
+  X,
 } from 'lucide-react';
 import {
   formatPriceUSD,
@@ -101,6 +103,8 @@ export default function CardTable({
   onSell,
   fetchingIds = new Set(),
 }: CardTableProps) {
+  const [zoomedImage, setZoomedImage] = useState<{ url: string; name: string } | null>(null);
+
   if (loading) {
     return (
       <div className="bg-surface border border-border rounded-xl overflow-hidden">
@@ -159,7 +163,11 @@ export default function CardTable({
                 >
                   {/* Image */}
                   <td className="px-3 py-2">
-                    <div className="w-8 h-10 relative rounded overflow-hidden bg-surface2 flex items-center justify-center shrink-0">
+                    <div
+                      className="w-8 h-10 relative rounded overflow-hidden bg-surface2 flex items-center justify-center shrink-0 cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                      onClick={() => mc.image_url && setZoomedImage({ url: mc.image_url, name: mc.card_name })}
+                      title="คลิกเพื่อดูรูปใหญ่"
+                    >
                       {mc.image_url ? (
                         <Image
                           src={mc.image_url}
@@ -318,6 +326,36 @@ export default function CardTable({
         </span>
         <span className="text-xs text-text-muted">CardQuant TH</span>
       </div>
+
+      {/* Image Zoom Modal */}
+      {zoomedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div
+            className="relative max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setZoomedImage(null)}
+              className="absolute -top-10 right-0 text-white/70 hover:text-white p-1"
+            >
+              <X size={24} />
+            </button>
+            <div className="relative w-full aspect-[2/3] rounded-xl overflow-hidden shadow-2xl">
+              <Image
+                src={zoomedImage.url}
+                alt={zoomedImage.name}
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </div>
+            <p className="text-center text-white/80 text-sm mt-3">{zoomedImage.name}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
