@@ -22,11 +22,19 @@ export async function GET(req: NextRequest) {
   ];
 
   const fetchHeaders = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',
     'Accept-Language': 'en-US,en;q=0.9,ja;q=0.8',
-    'Referer': 'https://snkrdunk.com/',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Referer': `https://snkrdunk.com/en/trading-cards/${cardId}`,
     'Origin': 'https://snkrdunk.com',
+    'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'sec-fetch-dest': 'empty',
+    'sec-fetch-mode': 'cors',
+    'sec-fetch-site': 'same-origin',
+    'Connection': 'keep-alive',
   };
 
   try {
