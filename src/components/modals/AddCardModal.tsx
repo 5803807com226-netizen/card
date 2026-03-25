@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Search, ChevronRight, ChevronLeft, Check, Loader2 } from 'lucide-react';
+import { Search, ChevronRight, ChevronLeft, Check, Loader2, PenLine } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { SearchCardResult, GameType } from '@/types';
@@ -25,11 +25,19 @@ const GAMES: { value: GameType; label: string; description: string; color: strin
 export default function AddCardModal({ isOpen, onClose, onSuccess }: AddCardModalProps) {
   const [step, setStep] = useState<Step>(1);
   const [selectedGame, setSelectedGame] = useState<GameType>('pokemon');
+  const [mode, setMode] = useState<'search' | 'manual'>('search');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchCardResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedCard, setSelectedCard] = useState<SearchCardResult | null>(null);
   const [saving, setSaving] = useState(false);
+  const [manualCard, setManualCard] = useState({
+    card_name: '',
+    set_name: '',
+    card_number: '',
+    rarity: '',
+    image_url: '',
+  });
   const [form, setForm] = useState({
     psa_grade: '',
     ebay_url: '',
@@ -46,10 +54,12 @@ export default function AddCardModal({ isOpen, onClose, onSuccess }: AddCardModa
   const resetAll = () => {
     setStep(1);
     setSelectedGame('pokemon');
+    setMode('search');
     setSearchQuery('');
     setSearchResults([]);
     setSelectedCard(null);
     setSaving(false);
+    setManualCard({ card_name: '', set_name: '', card_number: '', rarity: '', image_url: '' });
     setForm({
       psa_grade: '',
       ebay_url: '',
@@ -95,23 +105,36 @@ export default function AddCardModal({ isOpen, onClose, onSuccess }: AddCardModa
   }, [searchQuery, selectedGame, step]);
 
   const handleSave = async () => {
-    if (!selectedCard) return;
     setSaving(true);
-
     try {
+      const cardData = mode === 'manual'
+        ? {
+            game_type: selectedGame,
+            source_provider: 'manual',
+            source_card_id: `manual_${Date.now()}`,
+            card_name: manualCard.card_name,
+            set_name: manualCard.set_name || undefined,
+            card_number: manualCard.card_number || undefined,
+            image_url: manualCard.image_url || undefined,
+            rarity: manualCard.rarity || undefined,
+          }
+        : {
+            game_type: selectedCard!.game_type,
+            source_provider: selectedCard!.source_provider,
+            source_card_id: selectedCard!.source_card_id,
+            card_name: selectedCard!.name,
+            set_name: selectedCard!.set_name,
+            set_code: selectedCard!.set_code,
+            card_number: selectedCard!.card_number,
+            image_url: selectedCard!.image_url,
+            rarity: selectedCard!.rarity,
+          };
+
       const res = await fetch('/api/cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          game_type: selectedCard.game_type,
-          source_provider: selectedCard.source_provider,
-          source_card_id: selectedCard.source_card_id,
-          card_name: selectedCard.name,
-          set_name: selectedCard.set_name,
-          set_code: selectedCard.set_code,
-          card_number: selectedCard.card_number,
-          image_url: selectedCard.image_url,
-          rarity: selectedCard.rarity,
+          ...cardData,
           psa_grade: form.psa_grade ? parseInt(form.psa_grade) : undefined,
           ebay_url: form.ebay_url || undefined,
           japan_url: form.japan_url || undefined,
@@ -210,105 +233,196 @@ export default function AddCardModal({ isOpen, onClose, onSuccess }: AddCardModa
           </div>
         )}
 
-        {/* Step 2: Search */}
+        {/* Step 2: Search or Manual */}
         {step === 2 && (
           <div className="space-y-4">
-            <p className="text-sm text-text-muted">ค้นหาการ์ดจาก {GAMES.find(g => g.value === selectedGame)?.label}</p>
-            <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input
-                autoFocus
-                type="text"
-                placeholder="พิมพ์ชื่อการ์ด..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-surface2 border border-border rounded-lg pl-10 pr-4 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-primary transition-colors"
-              />
-              {searching && (
-                <Loader2
-                  size={16}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-primary animate-spin"
-                />
-              )}
+            {/* Mode toggle */}
+            <div className="flex gap-2 p-1 bg-surface2 rounded-lg">
+              <button
+                onClick={() => setMode('search')}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all',
+                  mode === 'search' ? 'bg-primary text-white shadow' : 'text-text-muted hover:text-text'
+                )}
+              >
+                <Search size={14} />
+                ค้นหาจาก API
+              </button>
+              <button
+                onClick={() => setMode('manual')}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-all',
+                  mode === 'manual' ? 'bg-primary text-white shadow' : 'text-text-muted hover:text-text'
+                )}
+              >
+                <PenLine size={14} />
+                กรอกเอง (Manual)
+              </button>
             </div>
 
-            {/* Results */}
-            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-              {searchResults.length === 0 && searchQuery.length >= 2 && !searching && (
-                <div className="text-center py-8 text-text-muted text-sm">
-                  ไม่พบการ์ดที่ค้นหา
+            {/* Search mode */}
+            {mode === 'search' && (
+              <>
+                <p className="text-sm text-text-muted">ค้นหาการ์ดจาก {GAMES.find(g => g.value === selectedGame)?.label}</p>
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="พิมพ์ชื่อการ์ด..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-surface2 border border-border rounded-lg pl-10 pr-4 py-3 text-sm text-text placeholder-text-muted focus:outline-none focus:border-primary transition-colors"
+                  />
+                  {searching && (
+                    <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-primary animate-spin" />
+                  )}
                 </div>
-              )}
-              {searchResults.map((card) => (
-                <button
-                  key={card.id}
-                  onClick={() => {
-                    setSelectedCard(card);
-                    setStep(3);
-                  }}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-surface2 transition-all text-left"
-                >
-                  <div className="w-10 h-14 relative rounded overflow-hidden bg-surface3 shrink-0">
-                    {card.image_url ? (
-                      <Image src={card.image_url} alt={card.name} fill className="object-cover" unoptimized />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs text-text-muted">?</div>
-                    )}
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {searchResults.length === 0 && searchQuery.length >= 2 && !searching && (
+                    <div className="text-center py-8 text-text-muted text-sm">ไม่พบการ์ดที่ค้นหา</div>
+                  )}
+                  {searchResults.map((card) => (
+                    <button
+                      key={card.id}
+                      onClick={() => { setSelectedCard(card); setStep(3); }}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-surface2 transition-all text-left"
+                    >
+                      <div className="w-10 h-14 relative rounded overflow-hidden bg-surface3 shrink-0">
+                        {card.image_url ? (
+                          <Image src={card.image_url} alt={card.name} fill className="object-cover" unoptimized />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs text-text-muted">?</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-text truncate">{card.name}</div>
+                        <div className="text-xs text-text-muted mt-0.5">{card.set_name}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          {card.card_number && <span className="text-xs bg-surface3 px-1.5 py-0.5 rounded">{card.card_number}</span>}
+                          {card.rarity && <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">{card.rarity}</span>}
+                        </div>
+                      </div>
+                      <ChevronRight size={14} className="text-text-muted shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Manual mode */}
+            {mode === 'manual' && (
+              <div className="space-y-3">
+                <p className="text-sm text-text-muted">กรอกข้อมูลการ์ดด้วยตนเอง</p>
+                <div>
+                  <label className={labelClass}>ชื่อการ์ด *</label>
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="เช่น Charizard VMAX, Kaido SR"
+                    value={manualCard.card_name}
+                    onChange={(e) => setManualCard({ ...manualCard, card_name: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>ชื่อเซ็ต</label>
+                    <input
+                      type="text"
+                      placeholder="เช่น Hidden Fates"
+                      value={manualCard.set_name}
+                      onChange={(e) => setManualCard({ ...manualCard, set_name: e.target.value })}
+                      className={inputClass}
+                    />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-text truncate">{card.name}</div>
-                    <div className="text-xs text-text-muted mt-0.5">{card.set_name}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      {card.card_number && (
-                        <span className="text-xs bg-surface3 px-1.5 py-0.5 rounded">{card.card_number}</span>
-                      )}
-                      {card.rarity && (
-                        <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">{card.rarity}</span>
-                      )}
+                  <div>
+                    <label className={labelClass}>เลขการ์ด</label>
+                    <input
+                      type="text"
+                      placeholder="เช่น SV49/SV94"
+                      value={manualCard.card_number}
+                      onChange={(e) => setManualCard({ ...manualCard, card_number: e.target.value })}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>ความหายาก</label>
+                  <input
+                    type="text"
+                    placeholder="เช่น Secret Rare, SAR, UR"
+                    value={manualCard.rarity}
+                    onChange={(e) => setManualCard({ ...manualCard, rarity: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>URL รูปภาพการ์ด</label>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={manualCard.image_url}
+                    onChange={(e) => setManualCard({ ...manualCard, image_url: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                {manualCard.image_url && (
+                  <div className="flex justify-center">
+                    <div className="w-20 h-28 relative rounded-lg overflow-hidden bg-surface3 border border-border">
+                      <Image src={manualCard.image_url} alt="preview" fill className="object-cover" unoptimized />
                     </div>
                   </div>
-                  <ChevronRight size={14} className="text-text-muted shrink-0" />
-                </button>
-              ))}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* Step 3: Confirm card */}
-        {step === 3 && selectedCard && (
+        {step === 3 && (mode === 'search' ? selectedCard : manualCard.card_name) && (
           <div className="space-y-4">
             <p className="text-sm text-text-muted">ยืนยันการ์ดที่เลือก</p>
             <div className="flex items-start gap-4 p-4 bg-surface2 rounded-xl border border-border">
               <div className="w-20 h-28 relative rounded-lg overflow-hidden bg-surface3 shrink-0">
-                {selectedCard.image_url ? (
+                {(mode === 'search' ? selectedCard?.image_url : manualCard.image_url) ? (
                   <Image
-                    src={selectedCard.image_url}
-                    alt={selectedCard.name}
+                    src={(mode === 'search' ? selectedCard!.image_url : manualCard.image_url)!}
+                    alt={mode === 'search' ? selectedCard!.name : manualCard.card_name}
                     fill
                     className="object-cover"
                     unoptimized
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-text-muted">?</div>
+                  <div className="w-full h-full flex items-center justify-center text-text-muted text-2xl">?</div>
                 )}
               </div>
               <div className="flex-1">
-                <div className="font-bold text-lg text-text">{selectedCard.name}</div>
-                <div className="text-text-muted mt-1">{selectedCard.set_name}</div>
+                <div className="font-bold text-lg text-text">
+                  {mode === 'search' ? selectedCard!.name : manualCard.card_name}
+                </div>
+                <div className="text-text-muted mt-1">
+                  {mode === 'search' ? selectedCard!.set_name : manualCard.set_name}
+                </div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {selectedCard.card_number && (
+                  {(mode === 'search' ? selectedCard!.card_number : manualCard.card_number) && (
                     <span className="text-xs bg-surface3 px-2 py-1 rounded border border-border">
-                      #{selectedCard.card_number}
+                      #{mode === 'search' ? selectedCard!.card_number : manualCard.card_number}
                     </span>
                   )}
-                  {selectedCard.rarity && (
+                  {(mode === 'search' ? selectedCard!.rarity : manualCard.rarity) && (
                     <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded border border-primary/20">
-                      {selectedCard.rarity}
+                      {mode === 'search' ? selectedCard!.rarity : manualCard.rarity}
                     </span>
                   )}
                   <span className="text-xs bg-surface3 px-2 py-1 rounded border border-border capitalize">
-                    {selectedCard.game_type}
+                    {mode === 'search' ? selectedCard!.game_type : selectedGame}
                   </span>
+                  {mode === 'manual' && (
+                    <span className="text-xs bg-yellow-500/10 text-yellow-400 px-2 py-1 rounded border border-yellow-500/20">
+                      Manual
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -428,13 +542,17 @@ export default function AddCardModal({ isOpen, onClose, onSuccess }: AddCardModa
           <Button
             variant="primary"
             onClick={() => {
-              if (step === 2 && selectedCard) setStep(3);
-              else if (step === 3) setStep(4);
-              else if (step === 1) setStep(2);
+              if (step === 1) setStep(2);
+              else if (step === 2) {
+                if (mode === 'manual' && manualCard.card_name) setStep(3);
+                else if (mode === 'search' && selectedCard) setStep(3);
+              } else if (step === 3) setStep(4);
             }}
             disabled={
-              (step === 2 && !selectedCard) ||
-              (step === 3 && !selectedCard)
+              (step === 2 && mode === 'search' && !selectedCard) ||
+              (step === 2 && mode === 'manual' && !manualCard.card_name) ||
+              (step === 3 && mode === 'search' && !selectedCard) ||
+              (step === 3 && mode === 'manual' && !manualCard.card_name)
             }
           >
             {step === 3 ? 'กรอกรายละเอียด' : 'ถัดไป'}

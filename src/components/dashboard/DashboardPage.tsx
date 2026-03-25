@@ -8,6 +8,7 @@ import CardTable from './CardTable';
 import AddCardModal from '@/components/modals/AddCardModal';
 import EditCardModal from '@/components/modals/EditCardModal';
 import SellCardModal from '@/components/modals/SellCardModal';
+import ManualPriceModal from '@/components/modals/ManualPriceModal';
 import { TrackedCard, CardFilters, DashboardStats } from '@/types';
 import { isToday, calculateProfit } from '@/lib/utils';
 
@@ -44,6 +45,10 @@ export default function DashboardPage() {
   });
   const [fetchingIds, setFetchingIds] = useState<Set<string>>(new Set());
   const [fetchingAll, setFetchingAll] = useState(false);
+  const [priceModal, setPriceModal] = useState<{ open: boolean; card: TrackedCard | null }>({
+    open: false,
+    card: null,
+  });
   const [sets, setSets] = useState<string[]>([]);
 
   const fetchCards = useCallback(async () => {
@@ -103,29 +108,8 @@ export default function DashboardPage() {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
-  const handleFetchPrice = async (card: TrackedCard) => {
-    setFetchingIds((prev) => { const s = new Set(Array.from(prev)); s.add(card.id); return s; });
-    try {
-      await fetch('/api/scrape', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracked_card_id: card.id, priority: 1 }),
-      });
-      setTimeout(() => {
-        fetchCards();
-        setFetchingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(card.id);
-          return next;
-        });
-      }, 3000);
-    } catch {
-      setFetchingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(card.id);
-        return next;
-      });
-    }
+  const handleFetchPrice = (card: TrackedCard) => {
+    setPriceModal({ open: true, card });
   };
 
   const handleFetchAll = async () => {
@@ -222,7 +206,7 @@ export default function DashboardPage() {
           onFetchPrice={handleFetchPrice}
           onSell={(card) => setSellModal({ open: true, card })}
           fetchingIds={fetchingIds}
-        />
+      />
       </main>
 
       <AddCardModal
@@ -243,6 +227,13 @@ export default function DashboardPage() {
         onClose={() => setSellModal({ open: false, card: null })}
         onSuccess={fetchCards}
         card={sellModal.card}
+      />
+
+      <ManualPriceModal
+        isOpen={priceModal.open}
+        onClose={() => setPriceModal({ open: false, card: null })}
+        onSuccess={() => { fetchCards(); setPriceModal({ open: false, card: null }); }}
+        card={priceModal.card}
       />
     </div>
   );
