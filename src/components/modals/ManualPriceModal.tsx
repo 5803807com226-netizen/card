@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { DollarSign, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { DollarSign, Check, RefreshCw, ExternalLink } from 'lucide-react';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 import { TrackedCard } from '@/types';
+import { cn } from '@/lib/utils';
 
 interface ManualPriceModalProps {
   isOpen: boolean;
@@ -13,13 +14,74 @@ interface ManualPriceModalProps {
   card: TrackedCard | null;
 }
 
+// Extract SNKRDUNK card ID from URL like:
+// https://snkrdunk.com/en/trading-cards/91118 or
+// https://snkrdunk.com/en/v1/trading-cards/91118/used-listings
+function extractSnkrdunkId(url: string): string | null {
+  const match = url.match(/trading-cards\/(\d+)/);
+  return match ? match[1] : null;
+}
+
+// USD/JPY rough rate (will be overridden by live rate if available)
+const USD_JPY_RATE = 150;
+
 export default function ManualPriceModal({ isOpen, onClose, onSuccess, card }: ManualPriceModalProps) {
   const [form, setForm] = useState({ ebay_price: '', japan_price: '', thai_price: '', note: '' });
   const [saving, setSaving] = useState(false);
 
+  // SNKRDUNK fetch state
+  const [snkrdunkId, setSnkrdunkId] = useState('');
+  const [fetchingSnkrdunk, setFetchingSnkrdunk] = useState(false);
+  const [snkrdunkResult, setSnkrdunkResult] = useState<{
+    priceJPY: number;
+    priceUSD: number;
+    count: number;
+  } | null>(null);
+  const [snkrdunkError, setSnkrdunkError] = useState('');
+
+  // Auto-fill SNKRDUNK ID from japan_url
+  useEffect(() => {
+    if (!card) return;
+    const url = (card as any).japan_url || '';
+    if (url.includes('snkrdunk.com')) {
+      const id = extractSnkrdunkId(url);
+      if (id) setSnkrdunkId(id);
+    }
+  }, [card]);
+
   const handleClose = () => {
     setForm({ ebay_price: '', japan_price: '', thai_price: '', note: '' });
+    setSnkrdunkResult(null);
+    setSnkrdunkError('');
     onClose();
+  };
+
+  const handleFetchSnkrdunk = async () => {
+    if (!snkrdunkId.trim()) return;
+    setFetchingSnkrdunk(true);
+    setSnkrdunkError('');
+    setSnkrdunkResult(null);
+
+    try {
+      const res = await fetch(`/api/snkrdunk?cardId=${snkrdunkId.trim()}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSnkrdunkError(data.error || 'ดึงราคาไม่สำเร็จ');
+        return;
+      }
+
+      const priceJPY = data.lowestPriceJPY;
+      const priceUSD = Math.round((priceJPY / USD_JPY_RATE) * 100) / 100;
+
+      setSnkrdunkResult({ priceJPY, priceUSD, count: data.listingCount });
+      // Auto-fill japan price field
+      setForm((prev) => ({ ...prev, japan_price: priceUSD.toString() }));
+    } catch {
+      setSnkrdunkError('เชื่อมต่อ SNKRDUNK ไม่ได้');
+    } finally {
+      setFetchingSnkrdunk(false);
+    }
   };
 
   const handleSave = async () => {
@@ -30,10 +92,13 @@ export default function ManualPriceModal({ isOpen, onClose, onSuccess, card }: M
       const japan = form.japan_price ? parseFloat(form.japan_price) : null;
       const thai = form.thai_price ? parseFloat(form.thai_price) : null;
 
-      // profit = japan - (ebay * 0.87 + shipping ~$5) converted roughly
       const buyCost = ebay ? ebay * 0.87 + 5 : null;
       const profit = japan && buyCost ? japan - buyCost : null;
       const profitPercent = profit && buyCost ? (profit / buyCost) * 100 : null;
+
+      const sourceNote = snkrdunkResult
+        ? `SNKRDUNK ID:${snkrdunkId} ราคาต่ำสุด ¥${snkrdunkResult.priceJPY} (~$${snkrdunkResult.priceUSD})`
+        : form.note || 'กรอกราคาด้วยตนเอง';
 
       const res = await fetch('/api/price-logs', {
         method: 'POST',
@@ -45,8 +110,8 @@ export default function ManualPriceModal({ isOpen, onClose, onSuccess, card }: M
           thai_price: thai,
           profit,
           profit_percent: profitPercent,
-          scrape_status: 'manual',
-          source_note: form.note || 'กรอกราคาด้วยตนเอง',
+          scrape_status: snkrdunkResult ? 'snkrdunk' : 'manual',
+          source_note: sourceNote,
         }),
       });
 
@@ -67,6 +132,7 @@ export default function ManualPriceModal({ isOpen, onClose, onSuccess, card }: M
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} size="sm">
+      {/* Header */}
       <div className="px-6 py-4 border-b border-border flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
           <DollarSign size={16} className="text-primary" />
@@ -77,12 +143,82 @@ export default function ManualPriceModal({ isOpen, onClose, onSuccess, card }: M
         </div>
       </div>
 
-      <div className="p-6 space-y-4">
-        <p className="text-xs text-text-muted bg-surface2 px-3 py-2 rounded-lg border border-border">
-          กรอกราคาที่ดูจาก eBay, Yahoo Japan หรือตลาดไทย แล้วระบบจะคำนวณกำไรให้อัตโนมัติ
-        </p>
+      <div className="p-6 space-y-5">
+        {/* SNKRDUNK section */}
+        <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-5 h-5 rounded bg-orange-500/20 flex items-center justify-center">
+              <span className="text-orange-400 text-[10px] font-bold">SD</span>
+            </div>
+            <span className="text-sm font-semibold text-orange-400">SNKRDUNK Japan</span>
+            <span className="text-xs text-text-muted ml-auto">Lowest In-Stock</span>
+          </div>
 
-        <div className="grid grid-cols-1 gap-3">
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Card ID เช่น 91118"
+                value={snkrdunkId}
+                onChange={(e) => {
+                  setSnkrdunkId(e.target.value);
+                  setSnkrdunkResult(null);
+                  setSnkrdunkError('');
+                }}
+                className="w-full bg-surface2 border border-border rounded-lg px-3 py-2 text-sm text-text placeholder-text-muted focus:outline-none focus:border-orange-400 transition-colors"
+                onKeyDown={(e) => e.key === 'Enter' && handleFetchSnkrdunk()}
+              />
+            </div>
+            <button
+              onClick={handleFetchSnkrdunk}
+              disabled={!snkrdunkId.trim() || fetchingSnkrdunk}
+              className={cn(
+                'px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 shrink-0',
+                'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed'
+              )}
+            >
+              <RefreshCw size={13} className={fetchingSnkrdunk ? 'animate-spin' : ''} />
+              {fetchingSnkrdunk ? 'กำลังดึง...' : 'ดึงราคา'}
+            </button>
+          </div>
+
+          {/* Result */}
+          {snkrdunkResult && (
+            <div className="bg-surface rounded-lg border border-orange-500/30 px-3 py-2 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-text-muted">ราคาต่ำสุด ({snkrdunkResult.count} รายการ)</p>
+                <p className="text-base font-bold text-orange-400">
+                  ¥{snkrdunkResult.priceJPY.toLocaleString()}
+                  <span className="text-sm font-normal text-text-muted ml-2">
+                    ≈ ${snkrdunkResult.priceUSD}
+                  </span>
+                </p>
+              </div>
+              <a
+                href={`https://snkrdunk.com/en/trading-cards/${snkrdunkId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-text-muted hover:text-orange-400 transition-colors"
+              >
+                <ExternalLink size={14} />
+              </a>
+            </div>
+          )}
+
+          {/* Error */}
+          {snkrdunkError && (
+            <p className="text-xs text-danger bg-danger/10 px-3 py-2 rounded-lg">{snkrdunkError}</p>
+          )}
+
+          <p className="text-xs text-text-muted">
+            วิธีหา Card ID: เปิด SNKRDUNK → ดูที่ URL เช่น{' '}
+            <code className="bg-surface2 px-1 rounded text-orange-400">snkrdunk.com/en/trading-cards/<strong>91118</strong></code>
+          </p>
+        </div>
+
+        {/* Manual price inputs */}
+        <div className="space-y-3">
+          <p className="text-xs font-medium text-text-muted">หรือกรอกราคาเอง</p>
           <div>
             <label className={labelClass}>ราคา eBay ($)</label>
             <input
@@ -95,14 +231,19 @@ export default function ManualPriceModal({ isOpen, onClose, onSuccess, card }: M
             />
           </div>
           <div>
-            <label className={labelClass}>ราคา Japan ($)</label>
+            <label className={labelClass}>
+              ราคา Japan ($)
+              {snkrdunkResult && (
+                <span className="ml-2 text-orange-400 text-xs">← ดึงจาก SNKRDUNK อัตโนมัติ</span>
+              )}
+            </label>
             <input
               type="number"
               step="0.01"
               placeholder="เช่น 38.50"
               value={form.japan_price}
               onChange={(e) => setForm({ ...form, japan_price: e.target.value })}
-              className={inputClass}
+              className={cn(inputClass, snkrdunkResult && 'border-orange-500/40')}
             />
           </div>
           <div>
@@ -130,7 +271,7 @@ export default function ManualPriceModal({ isOpen, onClose, onSuccess, card }: M
         {/* Live profit preview */}
         {form.ebay_price && form.japan_price && (
           <div className="bg-surface2 rounded-lg border border-border px-3 py-2">
-            <p className="text-xs text-text-muted mb-1">ประมาณกำไร (Japan - eBay×0.87 - $5 ค่าส่ง)</p>
+            <p className="text-xs text-text-muted mb-1">ประมาณกำไร (Japan − eBay×0.87 − $5 ค่าส่ง)</p>
             {(() => {
               const ebay = parseFloat(form.ebay_price);
               const japan = parseFloat(form.japan_price);
