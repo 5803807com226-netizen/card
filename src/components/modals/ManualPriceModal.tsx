@@ -67,7 +67,10 @@ export default function ManualPriceModal({ isOpen, onClose, onSuccess, card }: M
       const data = await res.json();
 
       if (!res.ok) {
-        setSnkrdunkError(data.error || 'ดึงราคาไม่สำเร็จ');
+        const detail = data.topKeys?.length
+          ? ` (keys: ${data.topKeys.join(', ')}${data.dataKeys?.length ? ' / data: ' + data.dataKeys.join(', ') : ''})`
+          : '';
+        setSnkrdunkError((data.error || 'ดึงราคาไม่สำเร็จ') + detail);
         return;
       }
 
