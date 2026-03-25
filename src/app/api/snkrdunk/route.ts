@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const USD_JPY_RATE = 150;
+const USD_JPY_RATE = 160; // SNKRDUNK internal rate
 
 // GET /api/snkrdunk?cardId=91118
 // Fetches lowest in-stock price from SNKRDUNK for a trading card

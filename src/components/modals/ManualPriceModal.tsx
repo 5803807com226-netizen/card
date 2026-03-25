@@ -23,7 +23,7 @@ function extractSnkrdunkId(url: string): string | null {
 }
 
 // USD/JPY rough rate (will be overridden by live rate if available)
-const USD_JPY_RATE = 150;
+const USD_JPY_RATE = 160; // SNKRDUNK internal rate
 
 export default function ManualPriceModal({ isOpen, onClose, onSuccess, card }: ManualPriceModalProps) {
   const [form, setForm] = useState({ ebay_price: '', japan_price: '', thai_price: '', note: '' });
