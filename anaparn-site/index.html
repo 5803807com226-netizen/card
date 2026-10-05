@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ANAPARN — Stories in Motion</title>
+  <meta name="description" content="Video Editor · Videographer · Photographer · Visual Creator based in Thailand" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400;500&family=Mrs+Saint+Delafield&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- ===== Fixed chrome ===== -->
+  <header class="topbar">
+    <a href="#home" class="logo">ANAPARN<span class="logo-dot"></span></a>
+    <nav class="topnav">
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+      <span class="badge">TH</span>
+      <button class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+    </nav>
+  </header>
+
+  <nav class="sidenav" aria-label="Sections">
+    <a href="#home" data-nav="home"><i>01</i>Home</a>
+    <a href="#work" data-nav="work"><i>02</i>Work</a>
+    <a href="#about" data-nav="about"><i>03</i>About</a>
+    <a href="#awards" data-nav="awards"><i>04</i>Awards</a>
+    <a href="#contact" data-nav="contact"><i>05</i>Contact</a>
+  </nav>
+
+  <main>
+    <!-- ===== HERO: sticky 3D fly-through ===== -->
+    <section id="home" class="hero" data-section="home">
+      <div class="hero-sticky">
+        <div class="stage">
+          <div class="scene" id="scene">
+            <div class="portrait" id="portrait">
+              <img src="https://picsum.photos/seed/anaparn-portrait/900/1100?grayscale" alt="" />
+            </div>
+            <!-- floating tiles are injected by main.js -->
+          </div>
+        </div>
+
+        <div class="hero-left layer" data-depth="0.25">
+          <p class="roles">Video Editor<br />Videographer<br />Photographer<br />Visual Creator<br />Based in Thailand</p>
+          <p class="verbs">Scroll<br />Explore<br />Watch<br />Read<br />Connect</p>
+        </div>
+
+        <div class="hero-right layer" data-depth="0.4">
+          <p class="tagline"><sup>*</sup>Capturing<br />people,<br />places,<br />and the<br />moments<br />in between.<br />—</p>
+        </div>
+
+        <p class="script layer" data-depth="0.6">Stories<br /><span>in Motion</span></p>
+
+        <a href="#work" class="scroll-hint">
+          <span class="line"></span>
+          Scroll to explore
+          <span class="dot"></span>
+        </a>
+      </div>
+    </section>
+
+    <!-- ===== WORK: 4 categories with 3D tilt + pop-out ===== -->
+    <section id="work" class="work" data-section="work">
+      <div class="cats">
+        <article class="cat tilt reveal" style="--d:0" data-cat="0"></article>
+        <article class="cat tilt reveal" style="--d:1" data-cat="1"></article>
+        <article class="cat tilt reveal" style="--d:2" data-cat="2"></article>
+        <article class="cat tilt reveal" style="--d:3" data-cat="3"></article>
+      </div>
+
+      <div class="featured">
+        <h3 class="featured-title reveal">Featured Projects</h3>
+        <div class="featured-track" id="featured"></div>
+        <a href="#" class="all-projects reveal" style="--d:6">All Projects <span class="arrow"></span></a>
+      </div>
+    </section>
+
+    <!-- ===== ABOUT: layered parallax ===== -->
+    <section id="about" class="about" data-section="about">
+      <div class="about-bg layer-scroll" data-speed="-0.25">
+        <img src="https://picsum.photos/seed/anaparn-about/1600/1000?grayscale" alt="" />
+      </div>
+      <div class="about-inner">
+        <p class="eyebrow reveal">03 — About</p>
+        <h2 class="big reveal" style="--d:1">I tell stories<br />through <em>light</em>,<br />movement &amp; silence.</h2>
+        <p class="body reveal" style="--d:2">
+          นักตัดต่อวิดีโอ ช่างภาพ และวิดีโอกราฟเฟอร์ จากประเทศไทย ถ่ายทอดเรื่องราวของผู้คน สถานที่
+          และช่วงเวลาระหว่างนั้น ผ่านภาพแนวตั้ง 9:16 สารคดี และงานทดลองทางภาพ
+        </p>
+      </div>
+      <div class="about-float layer-scroll" data-speed="0.35">
+        <div class="mini-card pop"><img src="https://picsum.photos/seed/anaparn-a1/400/700" alt="" /></div>
+      </div>
+      <div class="about-float b layer-scroll" data-speed="0.6">
+        <div class="mini-card pop"><img src="https://picsum.photos/seed/anaparn-a2/400/700?grayscale" alt="" /></div>
+      </div>
+    </section>
+
+    <!-- ===== AWARDS ===== -->
+    <section id="awards" class="awards" data-section="awards">
+      <p class="eyebrow reveal">04 — Awards</p>
+      <ul class="award-list">
+        <li class="reveal" style="--d:0"><span>2025</span>Best Short Film — Bangkok Indie Fest<i>Short Film</i></li>
+        <li class="reveal" style="--d:1"><span>2024</span>Official Selection — Chiang Mai Doc Week<i>Documentary</i></li>
+        <li class="reveal" style="--d:2"><span>2024</span>Honorable Mention — Asia Street Photo<i>Photography</i></li>
+        <li class="reveal" style="--d:3"><span>2023</span>Top 10 Vertical Film — Mobile Cinema Awards<i>9:16 Video</i></li>
+      </ul>
+    </section>
+
+    <!-- ===== CONTACT ===== -->
+    <section id="contact" class="contact" data-section="contact">
+      <p class="eyebrow reveal">05 — Contact</p>
+      <h2 class="contact-big reveal" style="--d:1">Let's make<br />something <em>move</em>.</h2>
+      <a class="mail reveal" style="--d:2" href="mailto:hello@example.com">hello@example.com</a>
+      <div class="socials reveal" style="--d:3">
+        <a href="#">Instagram</a><a href="#">YouTube</a><a href="#">TikTok</a><a href="#">Vimeo</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== Pop-up modal ===== -->
+  <div class="modal" id="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-card">
+      <button class="modal-close" data-close aria-label="Close">×</button>
+      <div class="modal-media"><img id="modal-img" alt="" /><span class="play big"></span></div>
+      <div class="modal-info">
+        <p class="eyebrow" id="modal-num"></p>
+        <h3 id="modal-title"></h3>
+        <p id="modal-meta"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
