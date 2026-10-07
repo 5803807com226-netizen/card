@@ -1,0 +1,349 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>html,body{margin:0;background:#ff8a00}canvas{display:block}</style>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// Digimusketeers promo — vertical 9:16, 6 scenes from the storyboard. draw(t) renders the frame at t seconds.
+const W = 1080, H = 1920, DURATION = 10.5;
+const ctx = document.getElementById('c').getContext('2d');
+const DISPLAY = '"Inter Display", "Inter", sans-serif';
+const THAI = '"Loma", "Noto Sans Thai", sans-serif';
+const MONO = '"DejaVu Sans Mono", monospace';
+const C = { ink: '#141414', white: '#fffaf0', yellow: '#ffd23f', gold: '#ffb800', orange: '#ff8a00', deep: '#f2600c', red: '#e0301e', dark: '#9e1d10', pink: '#ff9ec7' };
+
+// Scene timing (seconds)
+const S = { intro: [0, 1.5], assemble: [1.5, 3.5], energy: [3.5, 5.5], motion: [5.5, 7.0], message: [7.0, 9.0], cta: [9.0, 10.5] };
+
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, s, e) => clamp((t - s) / (e - s));
+const lerp = (a, b, x) => a + (b - a) * x;
+const ease = x => 1 - Math.pow(1 - x, 3);
+const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const backOut = x => { const c = 1.9; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+// Visibility of a span with short fades at both ends.
+const vis = (t, s, e, f = .22) => Math.min(ease(prog(t, s - f * .5, s + f)), 1 - prog(t, e - f, e + f * .5));
+// Deterministic pseudo-random so every render is identical.
+const rnd = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function text(str, x, y, font, color, align = 'center') {
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillText(str, x, y);
+}
+function star(cx, cy, r1, r2, n) {
+  ctx.beginPath();
+  for (let i = 0; i < n * 2; i++) {
+    const r = i % 2 ? r2 : r1, a = i * Math.PI / n - Math.PI / 2;
+    ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  ctx.closePath();
+}
+function sparkle(x, y, r, a) {
+  ctx.save(); ctx.globalAlpha *= a; ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.moveTo(x, y - r); ctx.quadraticCurveTo(x, y, x + r * .35, y); ctx.quadraticCurveTo(x, y, x, y + r);
+  ctx.quadraticCurveTo(x, y, x - r * .35, y); ctx.quadraticCurveTo(x, y, x, y - r); ctx.fill(); ctx.restore();
+}
+
+// ---------- background: brand yellow-orange, grid, drifting leaves ----------
+function background(t, warm = 0) {
+  const g = ctx.createRadialGradient(W / 2, H * .42, 80, W / 2, H * .5, H * .75);
+  g.addColorStop(0, C.yellow); g.addColorStop(.55, C.gold); g.addColorStop(1, C.orange);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  if (warm > 0) { // deeper orange-red for the message scene
+    const h = ctx.createLinearGradient(0, 0, 0, H);
+    h.addColorStop(0, 'rgba(255,138,0,0)'); h.addColorStop(.5, 'rgba(242,96,12,.55)'); h.addColorStop(1, 'rgba(158,29,16,.9)');
+    ctx.globalAlpha = warm; ctx.fillStyle = h; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.16)'; ctx.lineWidth = 2;
+  for (let x = 0; x <= W; x += 90) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 30; y <= H; y += 90) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  for (let i = 0; i < 14; i++) {
+    const x = (rnd(i) * W + Math.sin(t * .8 + i) * 40 + t * (20 + rnd(i + 9) * 30)) % (W + 120) - 60;
+    const y = (rnd(i + 40) * H + t * (30 + rnd(i + 20) * 50)) % (H + 120) - 60;
+    leaf(x, y, 34 + rnd(i + 3) * 30, t * (rnd(i + 5) - .5) * 2.4 + i, i % 3 ? C.gold : C.yellow);
+  }
+}
+function leaf(x, y, s, rot, color) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  ctx.beginPath(); ctx.moveTo(0, -s); ctx.quadraticCurveTo(s * .8, -s * .1, 0, s); ctx.quadraticCurveTo(-s * .8, -s * .1, 0, -s);
+  ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = '#e07a00'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -s * .7); ctx.lineTo(0, s * .7); ctx.stroke();
+  ctx.restore();
+}
+
+// ---------- logo ----------
+function logo(cx, cy, s, a) {
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, cy); ctx.scale(s, s);
+  ctx.fillStyle = C.ink;
+  rrect(-150, -150, 52, 300, 26); ctx.fill();                   // stem
+  ctx.beginPath(); ctx.arc(-124, -205, 32, 0, Math.PI * 2); ctx.fill(); // dot
+  text('G', 30, 8, `900 340px ${DISPLAY}`, C.ink);
+  text('DIGIMUSKETEERS', -10, 250, `700 54px ${MONO}`, C.ink);
+  ctx.restore();
+}
+function rays(t, a) {
+  ctx.save(); ctx.translate(W / 2, H * .45); ctx.rotate(t * .25); ctx.globalAlpha = a * .35; ctx.fillStyle = '#fff';
+  for (let i = 0; i < 12; i++) { ctx.rotate(Math.PI / 6); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-60, -1400); ctx.lineTo(60, -1400); ctx.fill(); }
+  ctx.restore();
+}
+
+// ---------- graphic elements (the "motion graphics toolkit") ----------
+function browserWin(w, h) {
+  rrect(-w / 2 + 14, -h / 2 + 18, w, h, 22); ctx.fillStyle = C.dark; ctx.fill();          // shadow
+  rrect(-w / 2, -h / 2, w, h, 22); ctx.fillStyle = C.white; ctx.fill();
+  ctx.lineWidth = 8; ctx.strokeStyle = C.ink; ctx.stroke();
+  rrect(-w / 2, -h / 2, w, 56, [22, 22, 0, 0]); ctx.fillStyle = C.deep; ctx.fill(); ctx.stroke();
+  [0, 1, 2].forEach(i => { ctx.beginPath(); ctx.arc(-w / 2 + 34 + i * 30, -h / 2 + 28, 9, 0, Math.PI * 2); ctx.fillStyle = C.white; ctx.fill(); });
+  rrect(-w / 2 + 30, -h / 2 + 80, w - 60, h - 110, 12); ctx.fillStyle = C.pink; ctx.fill(); ctx.stroke();
+  star(0, 30, 92, 42, 8); ctx.fillStyle = C.red; ctx.fill(); ctx.stroke();
+  star(0, 30, 40, 18, 8); ctx.fillStyle = C.yellow; ctx.fill();
+}
+function machine(w) { // isometric box with a screen
+  const h = w * .9, d = w * .35;
+  ctx.lineWidth = 8; ctx.strokeStyle = C.ink; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(-w / 2, -h / 2); ctx.lineTo(-w / 2 + d, -h / 2 - d * .6); ctx.lineTo(w / 2 + d, -h / 2 - d * .6); ctx.lineTo(w / 2, -h / 2); ctx.closePath();
+  ctx.fillStyle = '#f5f1ea'; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(w / 2, -h / 2); ctx.lineTo(w / 2 + d, -h / 2 - d * .6); ctx.lineTo(w / 2 + d, h / 2 - d * .6); ctx.lineTo(w / 2, h / 2); ctx.closePath();
+  ctx.fillStyle = '#b9b2a8'; ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#dcd6cc'; ctx.fillRect(-w / 2, -h / 2, w, h); ctx.strokeRect(-w / 2, -h / 2, w, h);
+  rrect(-w / 2 + 26, -h / 2 + 26, w - 52, h * .62, 10);
+  const g = ctx.createLinearGradient(0, -h / 2, 0, h * .2); g.addColorStop(0, C.red); g.addColorStop(1, C.dark);
+  ctx.fillStyle = g; ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.moveTo(-w / 2 + 50, -h / 2 + 40); ctx.lineTo(-w / 2 + 110, -h / 2 + 40); ctx.lineTo(-w / 2 + 50, -h / 2 + 140); ctx.fill();
+  [0, 1, 2].forEach(i => { ctx.fillStyle = C.ink; ctx.fillRect(-w / 2 + 30 + i * 46, h / 2 - 60, 30, 14); });
+}
+function playCard(w, h) {
+  rrect(-w / 2 + 10, -h / 2 + 14, w, h, 18); ctx.fillStyle = C.dark; ctx.fill();
+  rrect(-w / 2, -h / 2, w, h, 18); ctx.fillStyle = C.white; ctx.fill(); ctx.lineWidth = 8; ctx.strokeStyle = C.ink; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-w * .16, -h * .2); ctx.lineTo(w * .22, 0); ctx.lineTo(-w * .16, h * .2); ctx.closePath();
+  ctx.fillStyle = C.red; ctx.fill(); ctx.stroke();
+}
+function keyTray(w) {
+  const h = w * .32;
+  rrect(-w / 2 + 10, -h / 2 + 14, w, h, 18); ctx.fillStyle = C.dark; ctx.fill();
+  rrect(-w / 2, -h / 2, w, h, 18); ctx.fillStyle = C.white; ctx.fill(); ctx.lineWidth = 8; ctx.strokeStyle = C.ink; ctx.stroke();
+  for (let r = 0; r < 2; r++) for (let k = 0; k < 5; k++) {
+    rrect(-w / 2 + 28 + k * (w - 56) / 5, -h / 2 + 22 + r * (h - 34) / 2, (w - 56) / 5 - 14, (h - 34) / 2 - 12, 6);
+    ctx.fillStyle = (k + r) % 3 ? C.red : C.ink; ctx.fill();
+  }
+}
+function pen(len) {
+  ctx.lineWidth = 8; ctx.strokeStyle = C.ink;
+  rrect(-22, -len / 2, 44, len * .72, 10); ctx.fillStyle = C.red; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-22, len * .22); ctx.lineTo(22, len * .22); ctx.lineTo(0, len / 2); ctx.closePath();
+  ctx.fillStyle = C.white; ctx.fill(); ctx.stroke();
+}
+function cursorHand(s) {
+  ctx.lineWidth = 7; ctx.strokeStyle = C.ink; ctx.fillStyle = C.white;
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, s); ctx.lineTo(s * .28, s * .74); ctx.lineTo(s * .46, s * 1.08); ctx.lineTo(s * .6, s * 1.0);
+  ctx.lineTo(s * .44, s * .68); ctx.lineTo(s * .78, s * .66); ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+
+// Elements of the assembled cluster: final offset from cluster centre, entry direction, draw fn.
+const PARTS = [
+  { x: 120, y: 60, r: .04, from: [900, -300], draw: () => machine(330) },
+  { x: -150, y: -150, r: -.08, from: [-900, -500], draw: () => browserWin(420, 340) },
+  { x: -230, y: 210, r: -.12, from: [-900, 400], draw: () => playCard(200, 250) },
+  { x: 60, y: 380, r: .05, from: [300, 900], draw: () => keyTray(420) },
+  { x: 330, y: 320, r: -.7, from: [900, 600], draw: () => pen(260) },
+  { x: -300, y: -360, r: -.3, from: [-600, -900], draw: () => cursorHand(110) },
+  { x: 330, y: -330, r: 0, from: [800, -900], draw: () => { star(0, 0, 70, 30, 5); ctx.fillStyle = C.red; ctx.fill(); ctx.lineWidth = 7; ctx.strokeStyle = C.ink; ctx.stroke(); } },
+];
+
+function flame(h, w, ph, t) {
+  const f = Math.sin(t * 13 + ph) * .1 + Math.sin(t * 7.3 + ph * 2) * .06;
+  const path = (hh, ww) => {
+    ctx.beginPath(); ctx.moveTo(-ww / 2, 0);
+    ctx.bezierCurveTo(-ww / 2, -hh * .5, -ww * .2, -hh * .55, ww * f * 2.5, -hh * (1 + f));
+    ctx.bezierCurveTo(ww * .2, -hh * .5, ww / 2, -hh * .45, ww / 2, 0);
+    ctx.quadraticCurveTo(0, hh * .18, -ww / 2, 0);
+  };
+  const g = ctx.createLinearGradient(0, 0, 0, -h);
+  g.addColorStop(0, C.red); g.addColorStop(.5, C.deep); g.addColorStop(1, C.gold);
+  path(h, w); ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = C.dark; ctx.stroke();
+  path(h * .55, w * .5); ctx.fillStyle = C.yellow; ctx.fill();
+}
+function flames(cx, cy, radius, k, t) {
+  if (k <= 0) return;
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2 + .3;
+    ctx.save(); ctx.translate(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius * 1.15); ctx.rotate(a + Math.PI / 2);
+    flame((190 + rnd(i) * 150) * k, 170 + rnd(i + 7) * 70, i * 1.7, t);
+    ctx.restore();
+  }
+}
+function sparks(cx, cy, t, k, seed = 0) {
+  if (k <= 0) return;
+  for (let i = 0; i < 26; i++) {
+    const life = (t * (.6 + rnd(i + seed) * .6) + rnd(i + 50 + seed)) % 1;
+    const a = rnd(i + 90 + seed) * Math.PI * 2, d = 200 + life * 520;
+    ctx.globalAlpha = k * (1 - life);
+    ctx.fillStyle = i % 2 ? '#fff' : C.yellow;
+    ctx.beginPath(); ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d - life * 120, 6 + rnd(i) * 8, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function motionLines(cx, cy, k, t) {
+  if (k <= 0) return;
+  ctx.save(); ctx.globalAlpha = k; ctx.strokeStyle = C.white; ctx.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    const a = i / 9 * Math.PI * 2 + t * .6, r0 = 520 + rnd(i) * 80, len = 90 + rnd(i + 4) * 90;
+    ctx.lineWidth = 8 + rnd(i + 2) * 6; ctx.beginPath();
+    ctx.arc(cx, cy, r0, a, a + len / r0); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// The toolkit cluster across scenes 2–3 (and shrunk for scene 5).
+function cluster(t, cx, cy, scale, assembleStart, energy, alpha) {
+  if (alpha <= 0) return;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(cx, cy); ctx.scale(scale, scale);
+  flames(0, 40, 430, energy, t);
+  PARTS.forEach((p, i) => {
+    const k = backOut(prog(t, assembleStart + i * .16, assembleStart + i * .16 + .55));
+    const bob = Math.sin(t * 4 + i * 1.3) * 14 * energy;
+    const wob = Math.sin(t * 3 + i) * .06 * energy;
+    ctx.save();
+    ctx.translate(lerp(p.from[0], p.x, k), lerp(p.from[1], p.y, k) + bob);
+    ctx.rotate(lerp(p.r + 1.2 * (i % 2 ? 1 : -1), p.r, k) + wob);
+    p.draw();
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+// Kinetic word with a 3D extrude.
+function bigWord(str, x, y, size, face, side, depth, rot = -0.1, skew = 0) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.transform(1, 0, skew, 1, 0, 0);
+  ctx.font = `italic 900 ${size}px ${DISPLAY}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = side;
+  for (let d = depth; d > 0; d -= 2) ctx.fillText(str, d * .55, d);
+  ctx.lineWidth = size * .03; ctx.strokeStyle = C.dark; ctx.strokeText(str, 0, 0);
+  ctx.fillStyle = face; ctx.fillText(str, 0, 0);
+  ctx.restore();
+}
+
+// ---------- scenes ----------
+function sceneIntro(t) {
+  const a = vis(t, -1, S.intro[1]);
+  if (a <= 0) return;
+  rays(t, a * ease(prog(t, 0, .6)));
+  const k = backOut(prog(t, .05, .75));
+  logo(W / 2, H * .44, lerp(.4, 1.3, k), a * ease(prog(t, 0, .4)));
+  [[220, 520, 46, 0], [860, 640, 60, .2], [180, 1180, 38, .4], [900, 1260, 52, .3], [760, 420, 30, .6]].forEach(([x, y, r, d]) =>
+    sparkle(x, y, r * (1 + Math.sin(t * 9 + d * 10) * .25), a * ease(prog(t, d, d + .3))));
+}
+
+function sceneToolkit(t) {
+  const a = vis(t, S.assemble[0], S.energy[1]);
+  if (a <= 0) return;
+  const energy = ease(prog(t, S.energy[0] - .1, S.energy[0] + .5));
+  const zoom = 1 + easeInOut(prog(t, S.energy[0], S.energy[1])) * .1;
+  const settle = prog(t, S.assemble[0] + .6, S.assemble[1]);
+  motionLines(W / 2, H * .47, (1 - energy) * Math.sin(settle * Math.PI) + energy * .7, t);
+  sparks(W / 2, H * .47, t, Math.max(.5 * Math.sin(settle * Math.PI), energy) * a);
+  cluster(t, W / 2, H * .47, zoom, S.assemble[0], energy, a);
+}
+
+function sceneMotion(t) {
+  const [s, e] = S.motion, a = vis(t, s, e, .15);
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  // diagonal band + speed bars
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(-.12);
+  ctx.fillStyle = C.deep; ctx.fillRect(-W, -260, W * 2, 520);
+  for (let i = 0; i < 16; i++) {
+    const y = -420 + rnd(i) * 840, len = 160 + rnd(i + 3) * 380;
+    const x = ((t - s) * (1600 + rnd(i + 6) * 1400) + rnd(i + 9) * 2400) % 2600 - 1300;
+    ctx.fillStyle = i % 3 ? 'rgba(255,250,240,.7)' : C.yellow; ctx.fillRect(-x, y, len, 10 + rnd(i + 1) * 12);
+  }
+  ctx.restore();
+  // triangle accent
+  ctx.save(); ctx.translate(820, 560 + Math.sin(t * 5) * 20); ctx.rotate(t * 1.5);
+  ctx.beginPath(); ctx.moveTo(0, -80); ctx.lineTo(70, 50); ctx.lineTo(-70, 50); ctx.closePath();
+  ctx.lineWidth = 22; ctx.strokeStyle = C.red; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore();
+  // word slides in from the left with trails, overshoots, then settles with a punch
+  const k = backOut(prog(t, s + .05, s + .55));
+  const x = lerp(-900, W / 2, k), punch = 1 + Math.sin(prog(t, s + .45, s + .75) * Math.PI) * .07;
+  const blur = 1 - prog(t, s + .3, s + .6);
+  for (let i = 4; i > 0; i--) { ctx.globalAlpha = a * blur * .18 * (5 - i); bigWord('MOTION', x - i * 90, H / 2, 260 * punch, C.white, C.red, 0); }
+  ctx.globalAlpha = a;
+  bigWord('MOTION', x, H / 2, 260 * punch, C.white, C.red, 34, -.12, -.12 * blur);
+  ctx.restore();
+}
+
+function sceneMessage(t) {
+  const [s, e] = S.message, a = vis(t, s, e);
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  cluster(t, W / 2, 560, .62, s - 2, 1, a);
+  const lines = [['MOTION', C.white, 1060], ['GRAPHICS', C.yellow, 1250], ['COMPANY', C.white, 1440]];
+  lines.forEach(([w, col, y], i) => {
+    const k = ease(prog(t, s + .15 + i * .18, s + .6 + i * .18));
+    ctx.globalAlpha = a * k;
+    bigWord(w, lerp(-300, W / 2, k) + Math.sin(t * 2 + i) * 6, y, 190, col, C.dark, 24, -.08);
+  });
+  const k = ease(prog(t, s + .8, s + 1.2));
+  ctx.globalAlpha = a * k;
+  ctx.save(); ctx.translate(W / 2, 1650 + (1 - k) * 40); ctx.rotate(-.05);
+  rrect(-470, -110, 940, 220, 28); ctx.fillStyle = 'rgba(120,20,10,.55)'; ctx.fill();
+  text('บริษัทรับทำโมชั่นกราฟิก', 0, -42, `700 66px ${THAI}`, C.white);
+  text('สร้างสรรค์งานภาพให้เหนือชั้น', 0, 48, `700 66px ${THAI}`, C.yellow);
+  ctx.restore();
+  ctx.restore();
+}
+
+function socialIcon(kind, x, y, r) {
+  ctx.save(); ctx.translate(x, y);
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fillStyle = C.ink; ctx.fill();
+  ctx.fillStyle = C.yellow; ctx.strokeStyle = C.yellow;
+  if (kind === 'fb') text('f', 6, 10, `900 ${r * 1.5}px ${DISPLAY}`, C.yellow);
+  if (kind === 'yt') {
+    rrect(-r * .58, -r * .4, r * 1.16, r * .8, r * .22); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-r * .15, -r * .22); ctx.lineTo(r * .25, 0); ctx.lineTo(-r * .15, r * .22); ctx.fillStyle = C.ink; ctx.fill();
+  }
+  if (kind === 'ig') {
+    ctx.lineWidth = r * .12; rrect(-r * .5, -r * .5, r, r, r * .28); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r * .23, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(r * .28, -r * .28, r * .07, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function sceneCTA(t) {
+  const [s] = S.cta, a = ease(prog(t, s - .1, s + .2));
+  if (a <= 0) return;
+  ctx.save(); ctx.globalAlpha = a;
+  rays(t, a * .8);
+  logo(W / 2, 640, lerp(.4, .9, backOut(prog(t, s, s + .5))), a);
+  const b = backOut(prog(t, s + .3, s + .7));
+  ctx.save(); ctx.translate(W / 2, 1090); ctx.scale(b, b);
+  rrect(-300, -70, 600, 140, 70); ctx.fillStyle = C.yellow; ctx.fill(); ctx.lineWidth = 8; ctx.strokeStyle = C.ink; ctx.stroke();
+  text('FOLLOW', -60, 4, `900 74px ${DISPLAY}`, C.ink);
+  for (let i = 0; i < 3; i++) { // chevrons pulse left-to-right
+    const p = .5 + .5 * Math.sin(t * 10 - i * 1.2);
+    ctx.globalAlpha = a * (.4 + .6 * p); ctx.fillStyle = C.ink;
+    ctx.beginPath(); const cx = 120 + i * 44; ctx.moveTo(cx - 14, -26); ctx.lineTo(cx + 18, 0); ctx.lineTo(cx - 14, 26); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore(); ctx.globalAlpha = a;
+  ['fb', 'yt', 'ig'].forEach((k, i) => {
+    const p = backOut(prog(t, s + .5 + i * .14, s + .85 + i * .14));
+    if (p > 0) socialIcon(k, W / 2 + (i - 1) * 220, 1330 - (1 - p) * 120, 82 * Math.max(p, 0));
+  });
+  const n = ease(prog(t, s + .8, s + 1.1));
+  ctx.globalAlpha = a * n;
+  text('Digimusketeers', W / 2, 1530 + (1 - n) * 30, `800 96px ${DISPLAY}`, C.ink);
+  [[200, 400, 50, 0], [880, 520, 40, .3], [170, 1000, 36, .5], [900, 980, 48, .2]].forEach(([x, y, r, d]) =>
+    sparkle(x, y, r * (1 + Math.sin(t * 9 + d * 10) * .3), a));
+  ctx.restore();
+}
+
+window.SIZE = [W, H];
+window.DURATION = DURATION;
+window.draw = t => {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
+  background(t, vis(t, S.message[0], S.message[1]));
+  sceneIntro(t); sceneToolkit(t); sceneMotion(t); sceneMessage(t); sceneCTA(t);
+};
+document.fonts.load(`italic 900 100px ${DISPLAY}`).then(() => document.fonts.load(`700 40px ${THAI}`)).then(() => { draw(0); window.ready = true; });
+</script>

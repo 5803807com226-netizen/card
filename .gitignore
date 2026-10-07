@@ -38,6 +38,6 @@ yarn-error.log*
 next-env.d.ts
 
 # video render output
-video/frames/
-video/out.mp4
-video/contact.png
+video/**/frames/
+video/**/out.mp4
+video/**/contact.png
