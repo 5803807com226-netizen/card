@@ -36,3 +36,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# video render output
+video/frames/
+video/out.mp4
+video/contact.png

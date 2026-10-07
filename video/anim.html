@@ -1,0 +1,120 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>html,body{margin:0;background:#0d0f14}canvas{display:block}</style>
+<canvas id="c" width="1280" height="720"></canvas>
+<script>
+// วิดีโอเป็นฟังก์ชันของเวลา: draw(t) วาดเฟรมที่วินาที t (ตัวเลขราคาเป็นตัวอย่าง)
+const W = 1280, H = 720, DURATION = 12;
+const ctx = document.getElementById('c').getContext('2d');
+const FONT = '"Loma", "Noto Sans Thai", sans-serif';
+const C = { bg: '#0d0f14', ink: '#f4f1ea', muted: '#8a90a0', gold: '#f2b33d', red: '#e5484d', green: '#3fb97f', panel: '#171a22' };
+
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, s, e) => clamp((t - s) / (e - s));
+const ease = x => 1 - Math.pow(1 - x, 3);
+const easeInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const lerp = (a, b, x) => a + (b - a) * x;
+// เข้า/ออกของแต่ละฉาก
+const scene = (t, s, e, f = .45) => Math.min(ease(prog(t, s, s + f)), 1 - prog(t, e - f, e));
+
+function text(str, x, y, size, color, { weight = 700, align = 'center', alpha = 1 } = {}) {
+  ctx.globalAlpha = alpha; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = 'middle';
+  ctx.font = `${weight} ${size}px ${FONT}`; ctx.fillText(str, x, y); ctx.globalAlpha = 1;
+}
+function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+
+const PRICES = [41, 43, 42, 46, 45, 50, 49, 55, 58, 56, 62, 68]; // พัน ¥ (ตัวอย่าง)
+const JPY_THB = 0.23;
+
+function background(t) {
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+  const off = (t * 20) % 64;
+  for (let x = -64 + off; x < W; x += 64) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = -64 + off; y < H; y += 64) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+}
+
+function titleScene(t) {
+  const a = scene(t, 0, 2.7);
+  if (a <= 0) return;
+  const k = ease(prog(t, 0.1, 0.9));
+  text('CardQuant', W / 2 - 70, 320 + (1 - k) * 40, 96, C.ink, { alpha: a });
+  text('TH', W / 2 + 225, 320 + (1 - k) * 40, 96, C.gold, { alpha: a });
+  const u = ease(prog(t, 0.5, 1.3));
+  ctx.globalAlpha = a; ctx.fillStyle = C.gold; ctx.fillRect(W / 2 - 220 * u, 385, 440 * u, 4); ctx.globalAlpha = 1;
+  text('ติดตามราคาการ์ด PSA 10 แบบเรียลไทม์', W / 2, 440, 34, C.muted, { weight: 400, alpha: a * ease(prog(t, 0.8, 1.5)) });
+}
+
+function slab(cx, cy, s, rot) {
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(s, 1);
+  rrect(-130, -190, 260, 380, 14); ctx.fillStyle = '#d9dde6'; ctx.fill();
+  rrect(-118, -178, 236, 62, 6); ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.fillStyle = C.red; ctx.fillRect(-118, -178, 236, 10);
+  text('PSA', -70, -140, 26, C.red); text('GEM MT 10', 40, -140, 22, '#222');
+  const g = ctx.createLinearGradient(-100, -100, 100, 170);
+  g.addColorStop(0, '#f2b33d'); g.addColorStop(.5, '#e5484d'); g.addColorStop(1, '#6b4bd8');
+  rrect(-100, -100, 200, 270, 10); ctx.fillStyle = g; ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(0, 20, 52, 0, Math.PI * 2); ctx.fill();
+  text('★', 0, 22, 60, C.gold);
+  ctx.restore();
+}
+
+function cardScene(t) {
+  const a = scene(t, 2.7, 6.2);
+  if (a <= 0) return;
+  ctx.globalAlpha = a;
+  const flip = easeInOut(prog(t, 2.7, 3.6));
+  slab(380, 370, Math.max(0.02, Math.abs(Math.cos((1 - flip) * Math.PI / 2))), (1 - flip) * -0.3 + Math.sin(t * 1.5) * 0.02);
+  ctx.globalAlpha = 1;
+  const rows = [['ญี่ปุ่น · SNKRDUNK', '¥68,000', C.ink], ['ราคาไทย', '฿17,900', C.ink], ['ส่วนต่าง', '+14%', C.green]];
+  rows.forEach(([k, v, col], i) => {
+    const r = ease(prog(t, 3.3 + i * 0.35, 3.9 + i * 0.35));
+    const y = 260 + i * 110, x = 660 + (1 - r) * 60;
+    ctx.globalAlpha = a * r; rrect(x, y - 42, 480, 84, 12); ctx.fillStyle = C.panel; ctx.fill(); ctx.globalAlpha = 1;
+    text(k, x + 28, y, 26, C.muted, { weight: 400, align: 'left', alpha: a * r });
+    text(v, x + 452, y, 38, col, { align: 'right', alpha: a * r });
+  });
+  text('การ์ดตัวอย่าง', 380, 610, 24, C.muted, { weight: 400, alpha: a });
+}
+
+function chartScene(t) {
+  const a = scene(t, 6, 10.2);
+  if (a <= 0) return;
+  const x0 = 140, x1 = 1140, y0 = 560, y1 = 200, lo = 38, hi = 72;
+  const px = i => lerp(x0, x1, i / (PRICES.length - 1));
+  const py = v => lerp(y0, y1, (v - lo) / (hi - lo));
+  text('ราคา PSA 10 ย้อนหลัง 12 เดือน', x0, 120, 36, C.ink, { align: 'left', alpha: a });
+  ctx.globalAlpha = a; ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.stroke();
+  const p = easeInOut(prog(t, 6.4, 9.2)) * (PRICES.length - 1);
+  const n = Math.floor(p), f = p - n;
+  const pts = PRICES.slice(0, n + 1).map((v, i) => [px(i), py(v)]);
+  if (n < PRICES.length - 1) pts.push([lerp(px(n), px(n + 1), f), lerp(py(PRICES[n]), py(PRICES[n + 1]), f)]);
+  const fill = ctx.createLinearGradient(0, y1, 0, y0);
+  fill.addColorStop(0, 'rgba(242,179,61,0.35)'); fill.addColorStop(1, 'rgba(242,179,61,0)');
+  ctx.beginPath(); ctx.moveTo(pts[0][0], y0); pts.forEach(q => ctx.lineTo(...q)); ctx.lineTo(pts.at(-1)[0], y0); ctx.fillStyle = fill; ctx.fill();
+  ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(...q) : ctx.moveTo(...q));
+  ctx.strokeStyle = C.gold; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.stroke();
+  const [hx, hy] = pts.at(-1);
+  ctx.fillStyle = C.gold; ctx.beginPath(); ctx.arc(hx, hy, 9 + Math.sin(t * 8) * 2, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  const v = lerp(PRICES[n], PRICES[Math.min(n + 1, PRICES.length - 1)], f) * 1000;
+  text(`¥${Math.round(v).toLocaleString('en-US')}`, x1, 120, 44, C.gold, { align: 'right', alpha: a });
+  text(`≈ ฿${Math.round(v * JPY_THB).toLocaleString('en-US')}`, x1, 168, 26, C.muted, { weight: 400, align: 'right', alpha: a });
+}
+
+function ctaScene(t) {
+  const a = scene(t, 10, DURATION + 1);
+  if (a <= 0) return;
+  const k = ease(prog(t, 10, 10.8));
+  text('ราคาญี่ปุ่น vs ไทย', W / 2, 300 + (1 - k) * 30, 64, C.ink, { alpha: a });
+  text('ในที่เดียว', W / 2, 385 + (1 - k) * 30, 64, C.gold, { alpha: a });
+  const b = ease(prog(t, 10.6, 11.3));
+  ctx.globalAlpha = a * b; rrect(W / 2 - 170, 460, 340, 70, 35); ctx.fillStyle = C.gold; ctx.fill(); ctx.globalAlpha = 1;
+  text('CardQuant TH', W / 2, 496, 32, C.bg, { alpha: a * b });
+}
+
+window.DURATION = DURATION;
+window.draw = t => { background(t); titleScene(t); cardScene(t); chartScene(t); ctaScene(t); };
+document.fonts.ready.then(() => { draw(0); window.ready = true; });
+</script>
